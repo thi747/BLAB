@@ -137,6 +137,57 @@
     return hslToHex(h, s, l);
   }
 
+  // Processar background-image com gradientes
+  function processBackgroundImage(bgImage) {
+    // Não processar se contém url() (imagens)
+    if (bgImage.includes("url(")) return bgImage;
+
+    // Processar apenas se contém gradient
+    if (!bgImage.includes("gradient")) return bgImage;
+
+    let processed = bgImage;
+
+    // Substituir cores RGB no gradiente
+    processed = processed.replace(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/g, (match, r, g, b) => {
+      const hex = rgbToHex(`rgb(${r}, ${g}, ${b})`);
+      if (hex) {
+        const darkened = darkenBackground(hex);
+        // Converter de volta para RGB
+        const newR = parseInt(darkened.slice(1, 3), 16);
+        const newG = parseInt(darkened.slice(3, 5), 16);
+        const newB = parseInt(darkened.slice(5, 7), 16);
+        return `rgb(${newR}, ${newG}, ${newB})`;
+      }
+      return match;
+    });
+
+    // Substituir cores HEX no gradiente
+    processed = processed.replace(/#([0-9a-f]{6})/gi, (match, hex) => {
+      const fullHex = `#${hex}`;
+      const darkened = darkenBackground(fullHex);
+      return darkened;
+    });
+
+    // Substituir cores nomeadas comuns
+    const colorMap = {
+      white: "#2a2a2a",
+      black: "#e0e0e0",
+      red: "#cc4444",
+      green: "#44cc44",
+      blue: "#4444cc",
+      yellow: "#cccc44",
+      gray: "#666666",
+      grey: "#666666",
+    };
+
+    Object.keys(colorMap).forEach((colorName) => {
+      const regex = new RegExp(`\\b${colorName}\\b`, "gi");
+      processed = processed.replace(regex, colorMap[colorName]);
+    });
+
+    return processed;
+  }
+
   // Processar todos os elementos
   function processAllElements() {
     const elements = document.querySelectorAll("*");
@@ -149,6 +200,16 @@
       if (bgColor && bgColor !== "rgba(0, 0, 0, 0)" && bgColor !== "transparent") {
         const newBg = darkenBackground(bgColor);
         el.style.setProperty("background-color", newBg, "important");
+      }
+
+      // Processar background-image (gradientes)
+      const bgImage = computed.backgroundImage;
+      if (bgImage && bgImage !== "none") {
+        const newBgImage = processBackgroundImage(bgImage);
+        if (newBgImage !== bgImage) {
+          el.style.setProperty("background-image", newBgImage, "important");
+          console.log(`🔄 Background-image processado: ${bgImage} → ${newBgImage}`);
+        }
       }
 
       // Processar color
@@ -242,6 +303,15 @@
                 const bgColor = computed.backgroundColor;
                 if (bgColor && bgColor !== "rgba(0, 0, 0, 0)" && bgColor !== "transparent") {
                   el.style.setProperty("background-color", darkenBackground(bgColor), "important");
+                }
+
+                // Processar background-image em novos elementos
+                const bgImage = computed.backgroundImage;
+                if (bgImage && bgImage !== "none") {
+                  const newBgImage = processBackgroundImage(bgImage);
+                  if (newBgImage !== bgImage) {
+                    el.style.setProperty("background-image", newBgImage, "important");
+                  }
                 }
 
                 const textColor = computed.color;
